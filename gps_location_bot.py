@@ -21,6 +21,10 @@ def get_dist(coord1, coord2):
     a = round(a, 2)
     return (f'{a} км')
 
+def nearest_point(coord):
+    global location_coords
+    dict_of_places={saved_coord:geopy.distance.distance(coord, saved_coord).km for saved_coord in location_coords}
+    return location_coords[min(dict_of_places,key=dict_of_places.get)]
 
 def get_time(time):
     sec=time.seconds
@@ -32,9 +36,9 @@ def get_time(time):
 
 
 
-bot_key = "Token"
+bot_key = "TOKEN"
 
-users, dict_of_friends = loading_from_database()
+users, dict_of_friends,location_coords = loading_from_database()
 
 lat = ''
 lon = ''
@@ -59,7 +63,7 @@ def return_user(update):
 
 def help(update, context):
 
-    send_message(context, update.message.chat.id, '''Команды: \n/generate_token - создает код подтверждения\n/friends - список друзей\n/gde - основная команда, показывающая расстояние до отслеживаемых людей''')
+    send_message(context, update.message.chat.id, '''Команды: \n/generate_token - создает код подтверждения\n/friends - список друзей\n/gde - основная команда, показывающая расстояние до отслеживаемых людей.\n\nНажмите reply/ответить на сообщение с вашей локацией, введите название места, где вы находитесь''')
     print (update.message['chat'], "HELP")
 
 
@@ -125,6 +129,9 @@ def get_friends(id):
     global dict_of_friends
     return list(set([val[1] for key,val in dict_of_friends.items() if val[0]==id] + [val[0] for key,val in dict_of_friends.items() if val[1]==id]))
 
+def statistics(update, context):
+    send_message(context, update.message.chat.id, "future update")
+
 def generate_token(update, context):
     global dict_of_friends
 
@@ -172,19 +179,20 @@ def gde(update, context):
              if user.current_location:
                 if cur_user.current_location:
                     gde_vse.append([get_dist(cur_user.current_location.current_pos, user.current_location.current_pos), user.username,
-                                    get_time(update.message.date-user.current_location.time_stamp), user.current_location.name])
+                                    get_time(update.message.date-user.current_location.time_stamp), nearest_point(user.current_location.current_pos)])                    #user.current_location.name
 
 
                 else:
                    send_message(context, update.message.chat.id, "we can’t determine the distance since you didn’t send your location")
                    return
              else:
-               stroka+=f"@{user.username} didn't send his location yet\n"
+               stroka += f"@{user.username} нет активной локации\n"
+            #   stroka+=f"@{user.username} didn't send his location yet\n"
 
 
 
     for dist, name, last_update, name_of_loc in sorted(gde_vse):
-        stroka+=f'@{name},   {str(dist)} -- {last_update[0]} {last_update[1]} ago, находится в {name_of_loc or "неизвестном месте"}\n'
+        stroka+=f'@{name},   {str(dist)} -- {last_update[0]} {last_update[1]} ago, находился около ст.м {name_of_loc or "неизвестном месте"}\n'
 
     send_message(context, update.message.chat.id, stroka)
 
@@ -235,6 +243,7 @@ def main():
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("help", help))
     dp.add_handler(CommandHandler("gde", gde))
+    dp.add_handler(CommandHandler("statistics", statistics))
     dp.add_handler(CommandHandler("generate_token", generate_token))
 
     # admin commands
