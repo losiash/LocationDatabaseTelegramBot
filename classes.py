@@ -13,7 +13,7 @@ class new_point:
         self.message_date = message.date
         self.user = user_send
         # self.user = users.get(message.chat.id) or new_user(message.chat)  #????
-        self.kod = (self.user.id,message.message_id)
+        self.kod = (self.user.id, message.message_id)
         self.live_period = None or location.live_period
         self.user.current_location = self
         print (self)

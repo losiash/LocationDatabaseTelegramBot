@@ -8,7 +8,8 @@ import sqlite3
 import arrow
 from SQlite_connection import *  # as sqlcon
 from classes import * #
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, CallbackContext
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 import time
 
 
@@ -23,8 +24,10 @@ def get_dist(coord1, coord2):
 
 def nearest_point(coord):
     global location_coords
-    dict_of_places={saved_coord:geopy.distance.distance(coord, saved_coord).km for saved_coord in location_coords}
-    return location_coords[min(dict_of_places,key=dict_of_places.get)]
+    dict_of_places={saved_coord:geopy.distance.distance(coord, saved_coord).km for saved_coord in location_coords if location_coords[saved_coord][0]}
+    print(dict_of_places, "------------------------------------")
+
+    return location_coords[min(dict_of_places, key=dict_of_places.get)][0]
 
 def get_time(time):
     sec=time.seconds
@@ -112,8 +115,11 @@ def echo(update, context):
     try:
       print(int(update['message']['text']) in active_codes)
       if int(update['message']['text']) in active_codes:
-        send_message(context, update.message.chat.id, f"now @{users[dict_of_friends[int(update['message']['text'])][0]].username} - added as new friend")
-        sql_add_friend_rec( update.message.chat.id,int(update['message']['text']))
+        if update.message.chat.id == users[dict_of_friends[int(update['message']['text'])][0]].id:
+            send_message(context, update.message.chat.id, "вы не можете добавить себя в отслеживаемые")
+        else:
+            send_message(context, update.message.chat.id, f"now @{users[dict_of_friends[int(update['message']['text'])][0]].username} - added as new friend")
+            sql_add_friend_rec( update.message.chat.id,int(update['message']['text']))
     except: pass
 
 
@@ -162,7 +168,20 @@ def get_reply(update, context):
     a = user.points.get(kod) or user.tracks.get(kod)
     if a:
         a.name = update.message.text
-        print (a, "NEW_NAME")
+        location_coords[(a.current_pos[0], a.current_pos[1])][0]=a.name
+        sql_add_location(a.current_pos[0], a.current_pos[1],user_id=kod[0], message_id=kod[1], name=a.name)
+
+        print (a, "NEW_NAME added by @", a.user)
+
+def gde_ia(update, context):
+    cur_user = return_user(update)
+    if cur_user.current_location:
+        send_message(context, update.message.chat.id, f"ближайшая к вам точка: {nearest_point(cur_user.current_location.current_pos)}")
+
+    else:
+        send_message(context, update.message.chat.id,
+                     "мы не можем определить место, тк вы не прислали свою локацию: нажмите /help чтобы прочитать инструкцию")
+    return
 
 
 def gde(update, context):
@@ -192,7 +211,7 @@ def gde(update, context):
 
 
     for dist, name, last_update, name_of_loc in sorted(gde_vse):
-        stroka+=f'@{name},   {str(dist)} -- {last_update[0]} {last_update[1]} ago, находился около ст.м {name_of_loc or "неизвестном месте"}\n'
+        stroka+=f'@{name},   {str(dist)} -- {last_update[0]} {last_update[1]} ago, находился около {name_of_loc or "неизвестном месте"}\n'
 
     send_message(context, update.message.chat.id, stroka)
 
@@ -205,6 +224,13 @@ def get_location(update, context):
 
     user=return_user(update)
     a = new_point(update,user)
+
+    message= update.edited_message or update.message
+    loc=message.location
+
+    location_coords[(loc.latitude , loc.longitude)]=[None, user.id, message.message_id, message.forward_date or message.edit_date or message.date, message.date]
+    sql_add_location(loc.latitude , loc.longitude,  user.id, message.message_id, name=None, time_stamp=message.forward_date or message.edit_date or message.date, message_date=message.date)
+
 
     if a.live_period:  # если у нас лайв.локейшн
         if a.kod not in a.user.tracks:  # если новый лайв.локейшн
@@ -243,6 +269,7 @@ def main():
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("help", help))
     dp.add_handler(CommandHandler("gde", gde))
+    dp.add_handler(CommandHandler("gde_ia", gde_ia))
     dp.add_handler(CommandHandler("statistics", statistics))
     dp.add_handler(CommandHandler("generate_token", generate_token))
 

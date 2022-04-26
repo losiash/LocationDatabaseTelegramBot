@@ -79,6 +79,10 @@ temp_mas=[("Проспект Ветеранов",59.84188,30.251543
 ),("Финляндский вокзал",59.955982,30.355729
 ),("Единый пассажирский терминал Пулково",59.799963,30.271598)]
 
+dict_of_friends = {}  # словарь вида -  айди пользователя - массив айди его друзей
+users = {}
+location_coords = {}
+
 def create_table():
     cur.execute("""CREATE TABLE IF NOT EXISTS users(
        userid INT PRIMARY KEY,
@@ -95,26 +99,40 @@ def create_table():
     """)
 
     cur.execute("""CREATE TABLE IF NOT EXISTS location_database(
-       user_id INT PRIMARY KEY,
-       date_time TEXT,
+       lat FLOAT,
        lon FLOAT,
-       lat FLOAT);
+       name TEXT,
+       user_id INT,
+       message_id INT,
+       time_stamp TEXT,
+       message_date TEXT
+       );
     """)
 
-    cur.execute("""CREATE TABLE IF NOT EXISTS location_coordinates(
-       name TEXT,
-       longitude FLOAT,
-       latitude FLOAT);
-    """)
+    # cur.execute("""CREATE TABLE IF NOT EXISTS location_coordinates(
+    #    name TEXT,
+    #    longitude FLOAT,
+    #    latitude FLOAT);
+    # """)
     conn.commit()
 
 def sql_add_user(chat):
     cur.execute("INSERT INTO users VALUES(?, ?, ?, ?);", (chat['id'], chat['username'], chat['first_name'], chat['last_name']))
     conn.commit()
 
-def sql_add_location(id, time, ln , lt):
-    cur.execute("INSERT INTO location_database VALUES(?, ?, ?, ?);", (id, time, ln ,lt))
+def sql_add_location(lt , ln,  user_id=None, message_id=None, name=None, time_stamp=None, message_date=None):
+    # print(ln, lt, location_coords.keys())
+
+
+
+    cur.execute('SELECT * FROM location_database WHERE (lat = ?) AND (lon = ?)', (lt,ln))
+
+    if cur.fetchall():
+        cur.execute("UPDATE location_database SET name = ?  WHERE (lat = ?) AND (lon = ?);", (name, lt, ln))
+    else:
+        cur.execute("INSERT INTO location_database VALUES(?, ?, ?, ?, ?, ?, ?);", (lt, ln , name, user_id, message_id, time_stamp, message_date))
     conn.commit()
+
 
 def sql_add_friend_send(id1, ver_code):
     global dict_of_friends
@@ -122,6 +140,10 @@ def sql_add_friend_send(id1, ver_code):
     dict_of_friends[ver_code]=(id1, None, True)
     cur.execute("INSERT INTO friends_graph VALUES(?, ?, ?, ?);", (ver_code, id1, None, True))
     conn.commit()
+
+# def sql_add_new_location(name, coord):
+#     cur.execute("INSERT INTO location_coordinates VALUES(?, ?, ?);", (name, coord[0], coord[1]))
+#     conn.commit()
 
 def sql_add_friend_rec(id2, ver_code):
     global dict_of_friends
@@ -136,9 +158,7 @@ def loading_from_database():
 
     create_table()
 
-    dict_of_friends = {}  # словарь вида -  айди пользователя - массив айди его друзей
-    users = {}
-    location_coords={}
+
 
     # USERS
     cur.execute("SELECT * FROM users;")
@@ -166,18 +186,17 @@ def loading_from_database():
 
     # TEMP
 
-    for kor in temp_mas:
-        cur.execute("INSERT INTO location_coordinates VALUES(?, ?, ?);", (kor[0], kor[1], kor[2]))
-    conn.commit()
+    for kor in temp_mas: #в будущем поместить настраевыемые автором точки в эксель и доставать pandas
+        sql_add_location(kor[1], kor[2], name=kor[0])
 
-    cur.execute("SELECT * FROM location_coordinates")
+
+    cur.execute("SELECT * FROM location_database")
     table_coord = cur.fetchall()
 
     for agreement in table_coord:
-        location_coords[(agreement[1],agreement[2])]=agreement[0]
+        location_coords[(agreement[0],agreement[1])]=(agreement[2], agreement[3], agreement[4], agreement[5], agreement[6])
 
-
-    conn.close()
+    print(location_coords, "------------------------------------------------------------------------------------")
     return users, dict_of_friends, location_coords
 
 
