@@ -2,8 +2,8 @@ import time
 import datetime
 
 class new_point:
-    def __init__(self, update, user_send):
-        message = update.edited_message or update.message
+    def __init__(self, message, user_send):
+        # message = update.edited_message or update.message
         location = message.location
         self.name = None
         self.current_pos = (location.latitude, location.longitude)
@@ -40,12 +40,12 @@ class new_track:
 
 
 class new_user:
-    def __init__(self, chat):
-        self.username = chat['username']
+    def __init__(self, message_dict):
+        self.username = message_dict['username']
         self.current_location = None
-        self.id = chat['id']
-        self.first_name = chat['first_name']
-        self.last_name = chat['last_name']
+        self.id = message_dict['id']
+        self.first_name = message_dict['first_name']
+        self.last_name = message_dict['last_name']
         self.points = {}
         self.points_seconds = {}
         self.tracks = {}
