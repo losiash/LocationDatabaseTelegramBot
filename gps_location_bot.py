@@ -14,7 +14,7 @@ import time
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
-TOKEN = 'Token'
+TOKEN = 'token'
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
@@ -269,7 +269,7 @@ async def bot_message(message: types.Message):
             await bot.send_message(friend.id,  f"now @{message.from_user.username} - added as new friend",   reply_markup=mainMenu)
 
             try:
-                dict_of_friends[int(message.from_user.id)] = (friend.id, message.from_user.id, False)
+                dict_of_friends[int(message.text)] = (friend.id, message.from_user.id, False)
                 sql_add_friend_rec(message.from_user.id, int(message.text))
             except:
                 print ('Почему-то не добавилось в базу')

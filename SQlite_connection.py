@@ -2,7 +2,7 @@ import sqlite3
 from classes import *
 # from sys import getdefaultencoding
 
-conn = sqlite3.connect(r'tgbot_database.db', check_same_thread=False)
+conn = sqlite3.connect(r'telegram_bot_database.db', check_same_thread=False)
 path=''
 cur = conn.cursor()
 
