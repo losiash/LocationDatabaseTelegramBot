@@ -2,7 +2,7 @@ import sqlite3
 from classes import *
 # from sys import getdefaultencoding
 
-conn = sqlite3.connect(r'C:\Users\David\Documents\itmo_university\informatics\logs\tgbot_database.db', check_same_thread=False)
+conn = sqlite3.connect(r'tgbot_database.db', check_same_thread=False)
 path=''
 cur = conn.cursor()
 
@@ -37,11 +37,6 @@ def create_table():
        );
     """)
 
-    # cur.execute("""CREATE TABLE IF NOT EXISTS location_coordinates(
-    #    name TEXT,
-    #    longitude FLOAT,
-    #    latitude FLOAT);
-    # """)
     conn.commit()
 
 def sql_add_user(message_dict):
@@ -50,8 +45,6 @@ def sql_add_user(message_dict):
     conn.commit()
 
 def sql_add_location(lt , ln,  user_id=None, message_id=None, name=None, time_stamp=None, message_date=None):
-    # print(ln, lt, location_coords.keys())
-
     cur.execute('SELECT * FROM location_database WHERE (lat = ?) AND (lon = ?)', (lt,ln))
 
     if cur.fetchall():
@@ -72,7 +65,7 @@ def sql_add_friend_send(id1, ver_code):
 def sql_add_friend_rec(id2, ver_code):
     global dict_of_friends
 
-    dict_of_friends[ver_code]=(dict_of_friends[ver_code][0],id2,False)
+    # dict_of_friends[ver_code]=(dict_of_friends[ver_code][0],id2,False)
     cur.execute(f"UPDATE friends_graph SET userid_receiver = ?  WHERE verification_code = ?;", (id2,ver_code))
     cur.execute(f"UPDATE friends_graph SET  active = ?  WHERE verification_code = ?;", (False,ver_code))
     conn.commit()
@@ -107,7 +100,7 @@ def loading_from_database():
 
 
     # SET_POINTS
-    with open(path+"set_points.txt", "r", encoding='utf-8') as f:
+    with open(path+"set_of_points.txt", "r", encoding='utf-8') as f:
            for line in f.readlines():
                name,lat,lon= line.split("\t")
                sql_add_location(lat, lon, name=name)
@@ -122,5 +115,3 @@ def loading_from_database():
 
     print(location_coords, "------------------------------------------------------------------------------------")
     return users, dict_of_friends, location_coords
-
-
