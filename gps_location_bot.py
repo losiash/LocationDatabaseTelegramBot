@@ -2,12 +2,11 @@
 # -*- coding: utf-8 -*-
 
 import geopy.distance
-import re
 import requests
-import sqlite3
-import arrow
+import secrets
 from SQlite_connection import *  # as sqlcon
 from classes import *
+import string
 import time
 
 
@@ -15,6 +14,8 @@ from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 TOKEN = 'token'
+alphabet = string.ascii_letters + string.digits
+
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
@@ -45,21 +46,15 @@ async def command_start(message: types.Message):
 async def command_token(message):
     global dict_of_friends
 
-    temp=17
-
     user = return_user(message)
 
-    all_tokens = list(dict_of_friends.keys())
+    new_token = ''.join(secrets.choice(alphabet) for i in range(8))
 
-    if all_tokens:
-       new_token=max(all_tokens)+temp
-    else:
-       new_token=123456
 
     sql_add_friend_send(message.from_user.id, new_token)
     dict_of_friends[new_token]=(message.from_user.id, None, True)
 
-    await bot.send_message(message.from_user.id, f"send this token to your friend: {new_token}", reply_markup=mainMenu)
+    await bot.send_message(message.from_user.id, f"отправьте этот токен своему другу: {new_token}", reply_markup=mainMenu)
 
 @dp.message_handler(commands=['friends'])
 async def command_friends(message):
@@ -85,10 +80,10 @@ async def command_help(message: types.Message):
 async def command_gde_ya(message):
     cur_user = return_user(message)
     if cur_user.current_location:
-        await bot.send_message(message.from_user.id,f"ближайшая к вам точка: {nearest_point(cur_user.current_location.current_pos)}",
+        await bot.send_message(message.from_user.id,f"ближайшая к вам точка: {nearest_point(cur_user) or 'неизвестное место'}",
                                reply_markup=mainMenu)
     else:
-        await bot.send_message(message.from_user.id,"мы не можем определить место, тк вы не прислали свою локацию: нажмите /help чтобы прочитать инструкцию",
+        await bot.send_message(message.from_user.id,"мы не можем определить место, так как вы не прислали свою геолокацию: нажмите /help чтобы прочитать инструкцию",
                                reply_markup=mainMenu)
 
     return
@@ -100,8 +95,6 @@ async def command_gde(message: types.Message):
     global  users
     gde_vse = []
     cur_user = return_user(message)
-    # if not cur_user:
-    #     return
 
     print (message)
 
@@ -113,20 +106,20 @@ async def command_gde(message: types.Message):
              if user.current_location:
                 if cur_user.current_location:
                     gde_vse.append([get_dist(cur_user.current_location.current_pos, user.current_location.current_pos), user.username,
-                                    get_time(message.date-user.current_location.time_stamp), nearest_point(user.current_location.current_pos)])                    #user.current_location.name
+                                    get_time(message.date-user.current_location.time_stamp), nearest_point(user)]) #user.current_location.name
 
 
                 else:
-                   await bot.send_message(message.from_user.id, "we can’t determine the distance since you didn’t send your location", reply_markup=mainMenu)
+                   await bot.send_message(message.from_user.id, "мы не можем определить расстояние, так как вы не прислали свою геолокацию", reply_markup=mainMenu)
 
              else:
-               stroka += f"@{user.username} нет активной локации\n"
-            #   stroka+=f"@{user.username} didn't send his location yet\n"
+               stroka += f"@{user.username} нет активной геолокации\n"
+
 
 
 
     for dist, name, last_update, name_of_loc in sorted(gde_vse):
-        stroka+=f'@{name},   {str(dist)} -- {last_update[0]} {last_update[1]} ago, находился около {name_of_loc or "неизвестном месте"}\n'
+        stroka+=f'@{name},   {str(dist)} -- {last_update[0]} {last_update[1]} назад, находился около {name_of_loc or "неизвестном месте"}\n'
 
 
     await bot.send_message(message.from_user.id, stroka, reply_markup=mainMenu)
@@ -177,20 +170,28 @@ def get_dist(coord1, coord2):
     a = round(a, 2)
     return (f'{a} км')
 
-def nearest_point(coord):
+def nearest_point(user):
+    coord=user.current_location.current_pos
+    friends=get_friends(user.id)
+
     global location_coords
-    dict_of_places={saved_coord:geopy.distance.distance(coord, saved_coord).km for saved_coord in location_coords if location_coords[saved_coord][0]}
+    dict_of_places={saved_coord:geopy.distance.distance(coord, saved_coord).km
+                    for saved_coord in location_coords if (location_coords[saved_coord][0] and
+                                                           (location_coords[saved_coord][1] in friends or not location_coords[saved_coord][1]))}
     print(dict_of_places, "------------------------------------")
 
-    return location_coords[min(dict_of_places, key=dict_of_places.get)][0]
+    if min(dict_of_places.values())>2:
+        return
+    else:
+        return location_coords[min(dict_of_places, key=dict_of_places.get)][0]
 
 def get_time(time):
     sec=time.seconds
-    if sec<60: return [sec, "seconds"]
-    elif sec<3600: return [sec//60, "minutes"]
-    elif sec<86400: return [sec//3600, "hours"]
-    elif sec<604800: return [sec//86400, "days"]
-    else: return [sec//604800, "weeks"]
+    if sec<60: return [sec, "секунд"]
+    elif sec<3600: return [sec//60, "минут"]
+    elif sec<86400: return [sec//3600, "часов"]
+    elif sec<604800: return [sec//86400, "дней"]
+    else: return [sec//604800, "недель"]
 
 
 
@@ -250,9 +251,11 @@ async def bot_message(message: types.Message):
     print(message.text,"эхо апдейт")
 
     active_codes = [str(code) for code,val in dict_of_friends.items() if val[2]]
+    availability_check= [x for x in active_codes if x in message.text]
 
-    if message.text in active_codes:
-        friend = users[dict_of_friends[int(message.text)][0]]
+    if availability_check:
+        rec_token=availability_check[0]
+        friend = users[dict_of_friends[rec_token][0]]
         print(dict_of_friends,[friend.id,message.from_user.id,False])
 
         if message.from_user.id  == friend.id:
@@ -269,8 +272,8 @@ async def bot_message(message: types.Message):
             await bot.send_message(friend.id,  f"now @{message.from_user.username} - added as new friend",   reply_markup=mainMenu)
 
             try:
-                dict_of_friends[int(message.text)] = (friend.id, message.from_user.id, False)
-                sql_add_friend_rec(message.from_user.id, int(message.text))
+                dict_of_friends[rec_token] = (friend.id, message.from_user.id, False)
+                sql_add_friend_rec(message.from_user.id, rec_token)
             except:
                 print ('Почему-то не добавилось в базу')
 

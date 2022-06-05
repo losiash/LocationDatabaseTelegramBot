@@ -20,7 +20,7 @@ def create_table():
     """)
 
     cur.execute("""CREATE TABLE IF NOT EXISTS friends_graph(
-       verification_code INT PRIMARY KEY,
+       verification_code TEXT PRIMARY KEY,
        userid_sender INT,
        userid_receiver INT,
        active BOOLEAN);
