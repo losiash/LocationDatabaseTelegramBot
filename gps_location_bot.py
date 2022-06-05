@@ -97,6 +97,12 @@ async def command_where(message: types.Message):
 
     stroka = ''
 
+    if not get_friends(cur_user.id):
+        await bot.send_message(message.from_user.id,
+                               "мы не можем выполнить эту функцию, так как вы не добавили никого в друзья",
+                               reply_markup=mainMenu)
+        return
+
     for user in users.values():
         if user.id in get_friends(cur_user.id):
             if user.current_location:
