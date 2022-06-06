@@ -174,8 +174,9 @@ def nearest_point(user):
     global location_coords
     dict_of_places = {saved_coord: geopy.distance.distance(coord, saved_coord).km
                       for saved_coord in location_coords if (location_coords[saved_coord][0] and
-                                                             (location_coords[saved_coord][1] in friends or not
-                                                             location_coords[saved_coord][1]))}
+                                                             (location_coords[saved_coord][1] in friends or
+                                                              location_coords[saved_coord][1] == user.id or
+                                                              not location_coords[saved_coord][1]))}
     print(dict_of_places, "------------------------------------")
 
     if min(dict_of_places.values()) > 2:
@@ -262,9 +263,9 @@ async def bot_message(message: types.Message):
             await bot.send_message(message.from_user.id, 'вас уже добавили в отслеживаемые', reply_markup=mainMenu)
 
         else:
-            await bot.send_message(message.from_user.id, f"now @{friend.username} - added as new friend",
+            await bot.send_message(message.from_user.id, f"теперь @{friend.username} - добавлен в отслеживаемые",
                                    reply_markup=mainMenu)
-            await bot.send_message(friend.id, f"now @{message.from_user.username} - added as new friend",
+            await bot.send_message(friend.id, f"теперь @{message.from_user.username} - добавлен в отслеживаемые",
                                    reply_markup=mainMenu)
 
             try:
